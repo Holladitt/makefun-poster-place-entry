@@ -1,4 +1,4 @@
-# KAVIRA — The Glass Bridge
+# AURELIS — The Aurora Fjord
 
 [![make.fun](https://img.shields.io/badge/make.fun-bounty-blue)](https://make.fun/bounty/the-poster-for-a-place-that-i-2-20261121-0539)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -6,11 +6,11 @@
 
 make.fun entry for [The Poster for a Place That Isn't There](https://make.fun/bounty/the-poster-for-a-place-that-i-2-20261121-0539).
 
-A travel poster for **KAVIRA, the Glass Bridge** — a dawn canyon in a
-high desert. One impossible landmark, a glass sky-bridge, arcs across
-the canyon gap between two terraced cliff cities as the sun rises over
-a far canyon wall; the river below mirrors the dawn in gold, and a
-small lantern boat drifts on it.
+A travel poster for **AURELIS, the Aurora Fjord** — a night fjord
+where the aurora burns green over still water. One impossible
+landmark, a lighthouse on a rock islet, sweeps its beam across the
+aurora-lit fjord; snow-capped ridges frame the channel, mist drifts
+over the water, and small lantern boats cross the reflections.
 
 ## Run
 

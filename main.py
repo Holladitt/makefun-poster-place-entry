@@ -1,4 +1,4 @@
-"""KAVIRA — The Glass Bridge. make.fun entry: The Poster for a Place
+"""AURELIS — The Aurora Fjord. make.fun entry: The Poster for a Place
 That Isn't There.
 
 Draws one travel poster (768x1024) to /output/entry.png. Stdlib only
@@ -7,25 +7,22 @@ rasterizer, a DejaVu glyph atlas read from fonts.bin beside this
 file, and a hand-rolled PNG writer. Deterministic: same bytes every
 run (seeded randomness only).
 
-Concept: KAVIRA, a dawn canyon in a high desert. One impossible
-landmark — a glass sky-bridge arcing across the canyon gap, catching
-the first sun — spans two terraced cliff cities. The sun rises over
-a far canyon wall; the river below mirrors the dawn in gold. Warm
-palette: violet dusk sky, rose and peach dawn, terracotta strata,
-gold light. The name is set big in DejaVu Serif Bold across the sky,
-one short subtitle beneath it, nothing else.
+Concept: AURELIS, a night fjord where the aurora burns green over
+still water. One impossible landmark — a lighthouse on a rock islet
+whose beam sweeps the aurora-lit fjord, under a sky full of aurora
+curtains. The mountains are organic noise ridgelines with snow
+catching the green light; the water mirrors the aurora in broken
+shimmer; mist drifts in soft puffs. Palette: deep indigo-teal night,
+emerald aurora, warm gold lamplight. The name is set big in DejaVu
+Serif Bold across the sky, one short subtitle beneath it, nothing
+else.
 
-v2 rebuild (v1 LUMARA was held by the owner as too flat/empty):
-painterly and dense — multi-stop gradients, stratified cliffs with
-facets, layered valley mist, grain over the whole frame, and every
-zone (sky, cliffs, river, foreground) filled.
-
-v3 (v2 KAVIRA was held: the concept was right, the execution was
-not): solid glowing sun disc with halo (no concentric rings), the
-bridge rebuilt as the hero (thick deck, towers, cables, lanterns,
-six walkers), wavy irregular strata with zigzag cracks and shadow
-pockets, organic broken river shimmer, and the valley floor extended
-up behind the far wall so no dark background triangles show.
+v4 (v1 LUMARA and v2/v3 KAVIRA were all held by the owner as too
+flat/procedural): a NEW place and a genuinely painterly style —
+no hard geometry, no flat horizontal bands, no concentric arcs, no
+line ladders. Organic value-noise shapes, soft multi-stop gradients,
+heavy full-frame grain, layered atmospheric mist, light that spreads
+(aurora glow, lighthouse beam, lantern glows) instead of hard discs.
 """
 
 import math
@@ -39,35 +36,77 @@ MASTER = 80  # glyph atlas em size in px (see gen_atlas.py)
 SEED = 20261121
 
 # ---------------------------------------------------------------- palette
-SKY_TOP = (28, 20, 54)
-SKY_2 = (86, 48, 88)
-SKY_3 = (172, 92, 98)
-SKY_4 = (232, 152, 98)
-HORIZON = (252, 198, 122)
-SUN = (255, 226, 160)
-SUN_CORE = (255, 244, 214)
-CLIFF_LT = (198, 112, 76)
-CLIFF = (158, 82, 62)
-CLIFF_DK = (106, 54, 54)
-CLIFF_SH = (58, 34, 48)
-STRATA_GOLD = (228, 160, 94)
-STRATA_DK = (122, 64, 58)
-FAR_WALL = (196, 128, 108)
-FAR_WALL_DK = (150, 92, 92)
-RIVER_TOP = (238, 172, 112)
-RIVER_MID = (168, 110, 108)
-RIVER_BOT = (54, 46, 74)
-GOLD = (240, 180, 90)
-GOLD_LT = (255, 215, 141)
-CREAM = (250, 238, 216)
-ROCK_FG = (40, 26, 40)
-MIST = (226, 182, 158)
-BUSH = (72, 52, 62)
+SKY_TOP = (8, 12, 36)
+SKY_2 = (16, 30, 58)
+SKY_3 = (26, 54, 78)
+SKY_HORIZON = (46, 88, 92)
+AUR1 = (110, 235, 170)   # emerald aurora
+AUR2 = (70, 210, 195)    # teal-green aurora
+AUR3 = (190, 230, 140)   # pale gold-green aurora edge
+AUR_WASH = (56, 108, 94)
+MTN_FAR = (58, 92, 104)
+MTN_FAR_LT = (96, 128, 132)
+MTN_L = (20, 34, 56)
+MTN_R = (26, 44, 66)
+SNOW = (198, 224, 208)
+SNOW_SH = (140, 168, 164)
+WATER_TOP = (24, 66, 76)
+WATER_MID = (16, 48, 60)
+WATER_BOT = (9, 26, 42)
+GOLD = (240, 185, 95)
+GOLD_LT = (255, 220, 150)
+BEAM = (255, 228, 165)
+CREAM = (246, 236, 214)
+ROCK_FG = (10, 16, 28)
+PINE = (12, 24, 38)
+MIST = (176, 208, 202)
+LIGHT_TOWER = (14, 20, 34)
 
 
 def mix(a, b, t):
     """Linear blend of two RGB colours; t=0 -> a, t=1 -> b."""
     return tuple(int(a[c] + (b[c] - a[c]) * t) for c in range(3))
+
+
+# ------------------------------------------------------------- value noise
+def _hash2(ix, iy, seed):
+    h = (ix * 374761393 + iy * 668265263 + seed * 974634211) & 0xFFFFFFFF
+    h = (h ^ (h >> 13)) * 1274126177 & 0xFFFFFFFF
+    h ^= h >> 16
+    return (h & 0xFFFFFFFF) / 4294967295.0
+
+
+def _sm(t):
+    return t * t * (3 - 2 * t)
+
+
+def vnoise(x, y, seed):
+    """Smooth value noise in [0, 1]; deterministic for fixed seed."""
+    ix = math.floor(x)
+    iy = math.floor(y)
+    fx = x - ix
+    fy = y - iy
+    a = _hash2(ix, iy, seed)
+    b = _hash2(ix + 1, iy, seed)
+    c = _hash2(ix, iy + 1, seed)
+    d = _hash2(ix + 1, iy + 1, seed)
+    u = _sm(fx)
+    v = _sm(fy)
+    return a + (b - a) * u + (c + (d - c) * u - (a + (b - a) * u)) * v
+
+
+def fbm(x, y, seed, octaves=3):
+    """Fractal Brownian motion over vnoise, in [0, 1]."""
+    tot = 0.0
+    amp = 1.0
+    fr = 1.0
+    norm = 0.0
+    for _ in range(octaves):
+        tot += vnoise(x * fr, y * fr, seed) * amp
+        norm += amp
+        amp *= 0.5
+        fr *= 2.03
+    return tot / norm
 
 
 # ---------------------------------------------------------------- canvas
@@ -365,26 +404,62 @@ def tracked_width(text, pitch):
     return len(text) * pitch
 
 
+# ------------------------------------------------------- soft blend tools
+def blend_px(cv, x, y, col, a):
+    """Alpha-blend one pixel toward col; a in [0, 1]."""
+    if a <= 0.005 or not (0 <= x < cv.w and 0 <= y < cv.h):
+        return
+    if a >= 0.995:
+        cv._set(x, y, col)
+        return
+    i = (y * cv.w + x) * 3
+    pix = cv.pix
+    pix[i] = int(pix[i] * (1 - a) + col[0] * a)
+    pix[i + 1] = int(pix[i + 1] * (1 - a) + col[1] * a)
+    pix[i + 2] = int(pix[i + 2] * (1 - a) + col[2] * a)
+
+
+def soft_disc(cv, cx, cy, r, col, peak):
+    """A disc whose alpha falls off quadratically to the rim: soft
+    glow / mist puff / paper blotch with no hard edge."""
+    cx, cy = int(cx), int(cy)
+    r = int(r)
+    if r <= 0:
+        return
+    pix = cv.pix
+    w = cv.w
+    for y in range(max(0, cy - r), min(cv.h, cy + r + 1)):
+        dy = (y - cy) / r
+        rem = 1 - dy * dy
+        if rem <= 0:
+            continue
+        dx = int(r * rem ** 0.5)
+        for x in range(max(0, cx - dx), min(cv.w, cx + dx + 1)):
+            d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5 / r
+            a = peak * (1 - d) * (1 - d)
+            if a <= 0.01:
+                continue
+            i = (y * w + x) * 3
+            pix[i] = int(pix[i] * (1 - a) + col[0] * a)
+            pix[i + 1] = int(pix[i + 1] * (1 - a) + col[1] * a)
+            pix[i + 2] = int(pix[i + 2] * (1 - a) + col[2] * a)
+
+
+def blend_rect(cv, x0, y0, x1, y1, col, a):
+    """Blend a whole rectangle toward col by a fixed alpha."""
+    if a <= 0.005:
+        return
+    pix = cv.pix
+    w = cv.w
+    for y in range(max(0, int(y0)), min(cv.h, int(y1) + 1)):
+        for x in range(max(0, int(x0)), min(cv.w, int(x1) + 1)):
+            i = (y * w + x) * 3
+            pix[i] = int(pix[i] * (1 - a) + col[0] * a)
+            pix[i + 1] = int(pix[i + 1] * (1 - a) + col[1] * a)
+            pix[i + 2] = int(pix[i + 2] * (1 - a) + col[2] * a)
+
+
 # ------------------------------------------------------- geometry helpers
-def clip_y(pts, y0, y1):
-    """Clip a polygon to the horizontal band y0..y1 (Sutherland-Hodgman)."""
-    def clip_half(pts, y, keep_below):
-        out = []
-        n = len(pts)
-        for i in range(n):
-            a = pts[i]
-            b = pts[(i + 1) % n]
-            ain = a[1] <= y if keep_below else a[1] >= y
-            bin_ = b[1] <= y if keep_below else b[1] >= y
-            if ain:
-                out.append(a)
-            if ain != bin_:
-                t = (y - a[1]) / (b[1] - a[1]) if b[1] != a[1] else 0.0
-                out.append((a[0] + (b[0] - a[0]) * t, y))
-        return out
-    return clip_half(clip_half(pts, y1, True), y0, False)
-
-
 def point_in_poly(x, y, pts):
     inside = False
     n = len(pts)
@@ -398,62 +473,20 @@ def point_in_poly(x, y, pts):
     return inside
 
 
-def _poly_xs_at_y(pts, y):
-    """Sorted x-intersections of a polygon with scanline y."""
-    xs = []
-    n = len(pts)
-    for i in range(n):
-        x0, y0 = pts[i]
-        x1, y1 = pts[(i + 1) % n]
-        if (y0 <= y < y1) or (y1 <= y < y0):
-            xs.append(x0 + (y - y0) * (x1 - x0) / (y1 - y0))
-    xs.sort()
-    return xs
-
-
-def zigzag_crack(cv, rng, x0, y0, x1, y1, col, width=1):
-    """A crack that wanders: segments with jittered midpoints."""
+def ridge_pts(x0, x1, base, amp, seed, step=8):
+    """An organic ridgeline: fBm wander plus a slow sine, sampled
+    every step px — never a straight line, never a regular wave."""
     pts = []
-    segs = 5
-    for i in range(segs + 1):
-        f = i / segs
-        x = x0 + (x1 - x0) * f + (rng.randint(-7, 7) if 0 < i < segs else 0)
-        y = y0 + (y1 - y0) * f
-        pts.append((x, y))
-    cv.polyline(pts, col, width)
-
-
-def strata_fill(cv, pts, y_top, y_bot, colors, amp=7.0, ph=0.0):
-    """Fill a polygon with strata bands whose boundaries wander
-    with x (two sine wobbles), so the rock reads as irregular
-    layers instead of flat wallpaper stripes."""
-    n = len(colors)
-    span = max(y_bot - y_top, 1)
-    ys = [p[1] for p in pts]
-    for y in range(max(int(min(ys)), 0), min(int(max(ys)), cv.h - 1) + 1):
-        xs = _poly_xs_at_y(pts, y)
-        for k in range(0, len(xs) - 1, 2):
-            xa, xb = int(math.ceil(xs[k])), int(math.floor(xs[k + 1]))
-            if xb < xa:
-                continue
-            run_col = None
-            run_start = xa
-            for x in range(xa, xb + 1):
-                wob = (amp * math.sin(x * 0.013 + ph)
-                       + amp * 0.55 * math.sin(x * 0.029 + ph * 1.7))
-                f = (y + wob - y_top) / span
-                bi = int(f * n)
-                if bi < 0:
-                    bi = 0
-                elif bi >= n:
-                    bi = n - 1
-                if run_col is None:
-                    run_col, run_start = bi, x
-                elif bi != run_col:
-                    cv.rect(run_start, y, x - 1, y, fill=colors[run_col])
-                    run_col, run_start = bi, x
-            if run_col is not None:
-                cv.rect(run_start, y, xb, y, fill=colors[run_col])
+    x = x0
+    while x <= x1:
+        y = base + amp * (fbm(x * 0.008, seed * 0.37, seed, 3) - 0.5) * 2
+        y += 5 * math.sin(x * 0.021 + seed)
+        pts.append((x, int(y)))
+        x += step
+    pts.append((x1, int(base + amp * (fbm(x1 * 0.008, seed * 0.37,
+                                          seed, 3) - 0.5) * 2
+                        + 5 * math.sin(x1 * 0.021 + seed))))
+    return pts
 
 
 def facets(cv, pts, rng, count, cols):
@@ -471,393 +504,366 @@ def facets(cv, pts, rng, count, cols):
         cv.polygon(tri, fill=rng.choice(cols))
 
 
-def facet_cluster(cv, pts, rng, cx, cy, r, count, cols):
-    """A soft irregular patch: small triangles clustered around
-    (cx, cy), anchored inside the polygon — reads as a shadow
-    hollow without any hard geometric edge."""
-    for _ in range(count):
-        x = cx + rng.randint(-r, r)
-        y = cy + rng.randint(-r // 2, r // 2)
-        if not point_in_poly(x, y, pts):
-            continue
-        s = rng.randint(3, 9)
-        tri = [(x, y), (x + rng.randint(-s, s), y + rng.randint(2, s)),
-               (x + rng.randint(-s, s), y + rng.randint(2, s))]
-        cv.polygon(tri, fill=rng.choice(cols))
-
-
 # ------------------------------------------------------------------ scene
+def aurora_columns():
+    """Per-column aurora band parameters: three wavy curtains whose
+    centrelines wander with fBm, plus a vertical-ray factor."""
+    cols = []
+    for x in range(W):
+        c1 = 300 + 62 * (fbm(x * 0.006, 0.0, 11, 3) - 0.5) * 2 \
+            + 22 * math.sin(x * 0.010 + 1.2)
+        c2 = 232 + 52 * (fbm(x * 0.007, 5.0, 23, 3) - 0.5) * 2 \
+            + 18 * math.sin(x * 0.008 + 2.6)
+        c3 = 372 + 46 * (fbm(x * 0.005, 9.0, 37, 3) - 0.5) * 2
+        ray = 0.72 + 0.55 * fbm(x * 0.045, 7.7, 51, 3)
+        cols.append((c1, c2, c3, ray))
+    return cols
+
+
 def draw_sky(cv):
-    cv.vgrad(0, 0, W, 470, [
-        (0.00, SKY_TOP), (0.30, SKY_2), (0.58, SKY_3),
-        (0.82, SKY_4), (1.00, HORIZON)])
+    cv.vgrad(0, 0, W, 600, [
+        (0.00, SKY_TOP), (0.35, SKY_2), (0.70, SKY_3),
+        (0.92, mix(SKY_HORIZON, AUR_WASH, 0.35)), (1.00, SKY_HORIZON)])
 
 
-def draw_clouds(cv, rng):
-    # low, wide dawn clouds built from overlapping flattened
-    # ellipses, kept clear of the title zone (y < 200, centre)
-    clouds = [(120, 235), (620, 215), (200, 305), (540, 325),
-              (90, 140), (680, 125)]
-    for (cx, cy) in clouds:
-        rx = rng.randint(50, 95)
-        cv.ellipse(cx - rx, cy - 6, cx + rx, cy + 6,
-                   fill=mix(SKY_2, SKY_3, 0.55))
-        cv.ellipse(cx - rx + 18, cy - 3, cx + rx - 10, cy + 9,
-                   fill=mix(SKY_3, SKY_4, 0.4))
-        cv.ellipse(cx - rx + 30, cy + 2, cx + rx - 30, cy + 10,
-                   fill=mix(SKY_4, GOLD_LT, 0.35))
-    # a few thin high streaks, low in the sky
-    for (x0, y, ln) in [(60, 250, 150), (430, 280, 180), (300, 340, 120)]:
-        cv.line(x0, y, x0 + ln, y, mix(CREAM, SKY_2, 0.55), 1)
+def draw_stars(cv, rng):
+    for _ in range(150):
+        x = rng.randint(8, W - 8)
+        y = rng.randint(8, 470)
+        b = rng.randint(140, 235)
+        col = (b, b, min(255, b + 18))
+        cv._set(x, y, col)
+        if rng.random() < 0.25:
+            cv._set(x + 1, y, (b - 40, b - 40, b - 30))
+    # a few bright four-point sparkles
+    for (x, y, s) in [(120, 90, 6), (660, 70, 7), (560, 150, 5),
+                      (210, 60, 5), (720, 200, 6), (60, 260, 5)]:
+        cv.line(x - s, y, x + s, y, (235, 238, 250), 1)
+        cv.line(x, y - s, x, y + s, (235, 238, 250), 1)
+        cv.disc(x, y, 2, (250, 250, 255))
 
 
-def draw_sun(cv):
-    # solid glowing disc with a soft halo: a smooth radial gradient
-    # built from many 1px-step discs, so no ring edges show; the
-    # halo edge melts into the sky colour at this height. Low over
-    # the far canyon rim, so the wall cuts its lower half.
-    cx, cy, r_max = 384, 402, 168
-    edge = mix(SKY_4, HORIZON, 0.55)
-    for r in range(r_max, 0, -1):
-        t = 1.0 - r / r_max
-        cv.disc(cx, cy, r, mix(edge, SUN_CORE, t ** 2.0))
+def draw_aurora(cv):
+    """Three soft aurora curtains, blended per pixel: Gaussian
+    falloff from wavy centrelines, vertical ray modulation, no
+    hard edge anywhere."""
+    cols = aurora_columns()
+    pix = cv.pix
+    w = cv.w
+    for y in range(198, 479):
+        row = y * w * 3
+        for x in range(w):
+            c1, c2, c3, ray = cols[x]
+            i1 = 0.78 * math.exp(-((y - c1) / 58.0) ** 2)
+            i2 = 0.52 * math.exp(-((y - c2) / 46.0) ** 2)
+            i3 = 0.36 * math.exp(-((y - c3) / 42.0) ** 2)
+            tot = i1 + i2 + i3
+            if tot < 0.02:
+                continue
+            a = tot * ray
+            if a > 1.0:
+                a = 1.0
+            r = (AUR1[0] * i1 + AUR2[0] * i2 + AUR3[0] * i3) / tot
+            g = (AUR1[1] * i1 + AUR2[1] * i2 + AUR3[1] * i3) / tot
+            b = (AUR1[2] * i1 + AUR2[2] * i2 + AUR3[2] * i3) / tot
+            idx = row + x * 3
+            pix[idx] = int(pix[idx] * (1 - a) + r * a)
+            pix[idx + 1] = int(pix[idx + 1] * (1 - a) + g * a)
+            pix[idx + 2] = int(pix[idx + 2] * (1 - a) + b * a)
 
 
-def draw_far_wall(cv, rng):
-    # hazy canyon wall across the gap, sun just over its rim
-    pts = [(212, 402), (556, 402), (540, 520), (516, 640),
-           (252, 640), (228, 520)]
-    strata_fill(cv, pts, 402, 640,
-                [FAR_WALL, mix(FAR_WALL, FAR_WALL_DK, 0.3),
-                 mix(FAR_WALL, SKY_4, 0.25), FAR_WALL_DK,
-                 mix(FAR_WALL, FAR_WALL_DK, 0.45), FAR_WALL,
-                 mix(FAR_WALL, SKY_4, 0.15), FAR_WALL_DK],
-                amp=5.0, ph=1.3)
-    facets(cv, pts, rng, 60, [mix(FAR_WALL, CREAM, 0.25),
-                              mix(FAR_WALL, FAR_WALL_DK, 0.4)])
-    # thin dark cracks in the far wall, not pillars
-    for (x0, y0, x1, y1) in [(330, 402, 336, 540), (446, 402, 442, 510),
-                             (300, 402, 296, 470), (480, 402, 486, 500)]:
-        cv.line(x0, y0, x1, y1, mix(FAR_WALL_DK, CLIFF_SH, 0.5), 1)
+def _ridge_diag(x0, y0, x1, y1, amp, seed, step=8):
+    """Ridgeline from (x0, y0) to (x1, y1): straight diagonal
+    plus fBm wander — organic, never a clean slope."""
+    pts = []
+    dx = x1 - x0
+    dy = y1 - y0
+    x = x0
+    while (x <= x1 if dx >= 0 else x >= x1):
+        f = (x - x0) / dx if dx else 0.0
+        y = y0 + dy * f + amp * (fbm(x * 0.008, seed * 0.37,
+                                     seed, 3) - 0.5) * 2
+        y += 5 * math.sin(x * 0.021 + seed)
+        pts.append((int(x), int(y)))
+        x += step if dx >= 0 else -step
+    pts.append((x1, int(y1 + amp * (fbm(x1 * 0.008, seed * 0.37,
+                                        seed, 3) - 0.5) * 2
+                       + 5 * math.sin(x1 * 0.021 + seed))))
+    return pts
 
 
-def draw_house(cv, x, ytop, w, h, lit=True):
-    """Small cliff dwelling: dark block, flat roof, lit windows."""
-    cv.rect(x, ytop - h, x + w, ytop, fill=CLIFF_SH)
-    cv.rect(x - 1, ytop - h - 2, x + w + 1, ytop - h, fill=CLIFF_SH)
-    if lit:
-        cv.disc(x + 5, ytop - h + 6, 5, mix(GOLD, CLIFF_SH, 0.55))
-        cv.rect(x + 3, ytop - h + 4, x + 6, ytop - h + 8, fill=GOLD_LT)
-        if w >= 18:
-            cv.rect(x + w - 7, ytop - h + 4, x + w - 4, ytop - h + 8,
-                    fill=GOLD_LT)
+def _snow_band(cv, ridge, depth, col, rng):
+    """A pale snow band hugging a ridgeline — but PATCHY: the
+    band exists only where gate noise is open, so the snowline
+    reads as drifted patches, never a painted stripe."""
+    def flush(run):
+        if len(run) < 2:
+            return
+        low = []
+        for (x, y) in run:
+            d = depth * (0.55 + 0.9 * fbm(x * 0.03, 4.4, 71, 2))
+            low.append((x, int(y + d)))
+        cv.polygon(run + list(reversed(low)), fill=col)
+
+    run = []
+    for (x, y) in ridge:
+        if fbm(x * 0.02, 9.9, 91, 2) > 0.42:
+            run.append((x, y))
+        else:
+            flush(run)
+            run = []
+    flush(run)
 
 
-def draw_tree(cv, x, ybase, h):
-    cv.polygon([(x - 5, ybase), (x, ybase - h), (x + 5, ybase)],
-               fill=BUSH)
-    cv.line(x, ybase, x, ybase - h, BUSH, 1)
+def draw_far_ridge(cv, rng):
+    ridge = ridge_pts(255, 515, 528, 30, 7)
+    pts = ridge + [(515, 575), (255, 575)]
+    cv.polygon(pts, fill=mix(MTN_FAR, SKY_3, 0.35))
+    _snow_band(cv, ridge, 9, mix(SNOW, MTN_FAR, 0.25), rng)
+    facets(cv, pts, rng, 40, [mix(MTN_FAR, MTN_FAR_LT, 0.5),
+                              mix(MTN_FAR, SNOW, 0.35)])
 
 
-def draw_left_cliff(cv, rng):
-    pts = [(0, 330), (150, 348), (238, 392), (268, 470), (246, 566),
-           (206, 664), (158, 752), (118, 828), (66, 912), (0, 962)]
-    strata_fill(cv, pts, 330, 962,
-                [CLIFF_LT, CLIFF, mix(CLIFF, STRATA_GOLD, 0.5),
-                 STRATA_GOLD, CLIFF_DK, CLIFF,
-                 mix(CLIFF_LT, CLIFF, 0.5), CLIFF_DK,
-                 mix(CLIFF, CLIFF_DK, 0.5), CLIFF_SH],
-                amp=8.0, ph=0.4)
-    # sunlit inner face: a lighter wedge along the gap side
-    face = [(238, 392), (268, 470), (246, 566), (206, 664),
-            (158, 752), (118, 828), (150, 828), (196, 700),
-            (228, 590), (240, 480), (226, 420)]
-    cv.polygon(face, fill=mix(CLIFF_LT, STRATA_GOLD, 0.45))
-    facets(cv, pts, rng, 140, [mix(CLIFF, CREAM, 0.22),
-                               mix(CLIFF_DK, CLIFF_SH, 0.5),
-                               mix(STRATA_GOLD, CLIFF, 0.4)])
-    # wandering cracks break the banding, plus dark shadow pockets
-    # and a light rock spur on the face
-    crack_col = mix(CLIFF_DK, CLIFF_SH, 0.5)
-    for (x0, y0, x1, y1) in [(120, 400, 100, 560), (200, 480, 220, 640),
-                             (80, 600, 60, 760), (160, 700, 180, 860),
-                             (60, 420, 90, 520), (190, 600, 160, 720)]:
-        zigzag_crack(cv, rng, x0, y0, x1, y1, crack_col, 1)
-    facet_cluster(cv, pts, rng, 165, 560, 45, 26,
-                  [mix(CLIFF_DK, CLIFF_SH, 0.45),
-                   mix(CLIFF_DK, CLIFF_SH, 0.6)])
-    facet_cluster(cv, pts, rng, 108, 790, 30, 22,
-                  [mix(CLIFF_DK, CLIFF_SH, 0.45),
-                   mix(CLIFF_DK, CLIFF_SH, 0.6)])
-    # terraced dwellings cut into the rim
-    draw_house(cv, 30, 348, 22, 15)
-    draw_house(cv, 96, 356, 18, 12)
-    draw_house(cv, 150, 372, 20, 14)
-    draw_house(cv, 60, 470, 18, 12)
-    draw_house(cv, 120, 540, 20, 13)
-    draw_house(cv, 40, 620, 16, 11)
-    draw_tree(cv, 210, 400, 22)
-    draw_tree(cv, 90, 372, 18)
+def draw_left_mountain(cv, rng):
+    ridge = _ridge_diag(0, 500, 260, 560, 26, 13)
+    pts = ridge + [(260, 560), (0, 700), (0, 1024)]
+    cv.polygon(pts, fill=MTN_L)
+    _snow_band(cv, ridge, 10, mix(SNOW, MTN_L, 0.2), rng)
+    facets(cv, pts, rng, 110, [mix(MTN_L, SNOW, 0.3),
+                               mix(MTN_L, (8, 12, 30), 0.5),
+                               mix(MTN_L, AUR2, 0.18)])
+    # a few pines clinging to the upper slope
+    for (x, y) in [(60, 640), (140, 615), (210, 590)]:
+        draw_pine(cv, x, y, 26)
 
 
-def draw_right_cliff(cv, rng):
-    pts = [(768, 330), (618, 348), (530, 392), (500, 470), (522, 566),
-           (562, 664), (610, 752), (650, 828), (702, 912), (768, 962)]
-    strata_fill(cv, pts, 330, 962,
-                [CLIFF_LT, CLIFF, mix(CLIFF, STRATA_GOLD, 0.5),
-                 STRATA_GOLD, CLIFF_DK, CLIFF,
-                 mix(CLIFF_LT, CLIFF, 0.5), CLIFF_DK,
-                 mix(CLIFF, CLIFF_DK, 0.5), CLIFF_SH],
-                amp=8.0, ph=2.1)
-    # the right face is in shade: a darker wedge along the gap side
-    face = [(530, 392), (500, 470), (522, 566), (562, 664),
-            (610, 752), (650, 828), (622, 828), (574, 700),
-            (542, 590), (530, 480), (544, 420)]
-    cv.polygon(face, fill=mix(CLIFF_DK, CLIFF_SH, 0.45))
-    facets(cv, pts, rng, 140, [mix(CLIFF, CREAM, 0.2),
-                               mix(CLIFF_DK, CLIFF_SH, 0.5),
-                               mix(STRATA_GOLD, CLIFF, 0.35)])
-    # wandering cracks break the banding, plus dark shadow pockets
-    # and a light rock spur on the face
-    crack_col = mix(CLIFF_DK, CLIFF_SH, 0.5)
-    for (x0, y0, x1, y1) in [(648, 400, 668, 560), (568, 480, 548, 640),
-                             (688, 600, 708, 760), (608, 700, 588, 860),
-                             (708, 420, 678, 520), (578, 600, 608, 720)]:
-        zigzag_crack(cv, rng, x0, y0, x1, y1, crack_col, 1)
-    facet_cluster(cv, pts, rng, 603, 560, 45, 26,
-                  [mix(CLIFF_DK, CLIFF_SH, 0.45),
-                   mix(CLIFF_DK, CLIFF_SH, 0.6)])
-    facet_cluster(cv, pts, rng, 662, 790, 20, 22,
-                  [mix(CLIFF_DK, CLIFF_SH, 0.45),
-                   mix(CLIFF_DK, CLIFF_SH, 0.6)])
-    draw_house(cv, 700, 348, 22, 15)
-    draw_house(cv, 640, 356, 18, 12)
-    draw_house(cv, 580, 372, 20, 14)
-    draw_house(cv, 690, 470, 18, 12)
-    draw_house(cv, 630, 540, 20, 13)
-    draw_house(cv, 700, 620, 16, 11)
-    draw_tree(cv, 560, 400, 22)
-    draw_tree(cv, 660, 372, 18)
+def draw_right_mountain(cv, rng):
+    ridge = _ridge_diag(768, 500, 510, 560, 26, 19)
+    pts = ridge + [(510, 560), (768, 700), (768, 1024)]
+    cv.polygon(pts, fill=MTN_R)
+    _snow_band(cv, ridge, 10, mix(SNOW, MTN_R, 0.2), rng)
+    facets(cv, pts, rng, 110, [mix(MTN_R, SNOW, 0.3),
+                               mix(MTN_R, (8, 12, 30), 0.5),
+                               mix(MTN_R, AUR2, 0.18)])
+    for (x, y) in [(710, 640), (630, 615), (560, 590)]:
+        draw_pine(cv, x, y, 24)
 
 
-def draw_bridge(cv, rng):
-    """The glass sky-bridge, the poster's hero: a thick pale-gold
-    deck arcing across the gap, suspension towers anchoring both
-    rims, cables with suspenders, lanterns glowing along the deck,
-    and six tiny walkers crossing at dawn."""
-    def arc_y(x):
-        t = (x - 240) / (528 - 240)
-        return 404 + 70 * 4 * t * (1 - t)
-
-    cable_pts = [(240, 352), (300, 388), (384, 400),
-                 (468, 388), (524, 352)]
-
-    def cable_y(x):
-        for i in range(len(cable_pts) - 1):
-            x0, y0 = cable_pts[i]
-            x1, y1 = cable_pts[i + 1]
-            if x0 <= x <= x1:
-                f = (x - x0) / (x1 - x0)
-                return y0 + (y1 - y0) * f
-        return cable_pts[-1][1]
-
-    xs = list(range(240, 529, 2))
-    top = [(x, arc_y(x) - 26) for x in xs]
-    deck = [(x, arc_y(x)) for x in xs]
-    shadow = [(x, arc_y(x) + 4) for x in xs]
-    cv.polyline(shadow, mix(CLIFF_SH, SKY_4, 0.35), 4)
-    # end towers: dark piers rising above the deck at both rims
-    for tx in (240, 524):
-        y = arc_y(tx)
-        cv.rect(tx - 7, y - 52, tx + 7, y + 6,
-                fill=mix(CLIFF_DK, CLIFF_SH, 0.35))
-        cv.rect(tx - 9, y - 56, tx + 9, y - 52,
-                fill=mix(CLIFF_DK, CLIFF_SH, 0.35))
-    # suspension cables from tower tops, sagging to mid-span
-    cv.polyline(cable_pts, mix(GOLD, CLIFF_DK, 0.25), 2)
-    for x in range(262, 510, 18):
-        cv.line(x, cable_y(x), x, arc_y(x) - 26,
-                mix(GOLD, SKY_4, 0.35), 1)
-    # the deck itself: bright pale gold, cream top edge, darker
-    # gold underside, with glass streaks catching the dawn
-    cv.polygon(top + list(reversed(deck)),
-               fill=mix(GOLD_LT, GOLD, 0.35))
-    cv.polyline(top, GOLD, 2)
-    cv.polyline(deck, mix(GOLD, CLIFF_DK, 0.35), 2)
-    for x in (276, 336, 420, 478):
-        y = arc_y(x)
-        cv.line(x, y - 23, x + 16, y - 7, mix(CREAM, GOLD_LT, 0.6), 1)
-    # lanterns glowing under the deck, spaced along the span
-    for x in range(258, 516, 30):
-        y = arc_y(x)
-        cv.line(x, y, x, y + 8, GOLD, 1)
-        cv.disc(x, y + 11, 7, mix(GOLD_LT, FAR_WALL, 0.45))
-        cv.disc(x, y + 11, 3, GOLD)
-        cv.disc(x, y + 11, 2, GOLD_LT)
-    # six tiny walkers, the human-scale cue
-    for x in (296, 332, 368, 404, 440, 476):
-        y = arc_y(x) - 26
-        cv.disc(x, y - 17, 3, CLIFF_SH)
-        cv.line(x, y - 14, x, y - 5, CLIFF_SH, 2)
-        cv.line(x, y - 5, x - 3, y, CLIFF_SH, 1)
-        cv.line(x, y - 5, x + 3, y, CLIFF_SH, 1)
-        cv.disc(x + 5, y - 10, 2, GOLD_LT)
+def draw_pine(cv, x, ybase, h):
+    """A small dark pine: three stacked triangles + trunk."""
+    cv.polygon([(x - h // 3, ybase), (x, ybase - h),
+                (x + h // 3, ybase)], fill=PINE)
+    cv.polygon([(x - h // 4, ybase - h // 3), (x, ybase - h * 2 // 3),
+                (x + h // 4, ybase - h // 3)], fill=mix(PINE, (20, 34, 50), 0.4))
+    cv.line(x, ybase, x, ybase - h, PINE, 1)
 
 
-def _interp_edge(edge, y):
-    """Piecewise-linear x at height y for an edge [(y, x), ...]."""
-    for i in range(len(edge) - 1):
-        y0, x0 = edge[i]
-        y1, x1 = edge[i + 1]
-        if y0 <= y <= y1:
-            f = 0.0 if y1 == y0 else (y - y0) / (y1 - y0)
-            return x0 + (x1 - x0) * f
-    return edge[-1][1]
+def _water_xl(y):
+    if y <= 560:
+        return 260
+    if y >= 700:
+        return 0
+    return int(260 - (y - 560) / 140 * 260)
 
 
-def draw_valley_floor(cv):
-    """Rocky valley floor from the horizon down, so no dark
-    sky-coloured gaps show between the far wall, the cliffs and
-    the river — those gaps read as black pyramids in v2. Drawn
-    BEFORE the far wall so the wall covers it where they overlap."""
-    cv.vgrad(0, 470, W, 542, [(0.0, (150, 92, 92)),
-                               (0.25, (132, 78, 76)),
-                               (0.55, (96, 62, 70)),
-                               (1.0, (52, 42, 66))])
+def _water_xr(y):
+    if y <= 560:
+        return 510
+    if y >= 700:
+        return 768
+    return int(510 + (y - 560) / 140 * 258)
 
 
-def draw_river(cv, rng):
-    left = [(640, 300), (760, 248), (900, 212), (1012, 132)]
-    right = [(640, 468), (760, 520), (900, 556), (1012, 636)]
-
-    def river_col(y):
-        t = (y - 640) / 372.0
+def draw_water(cv, rng, cols):
+    for y in range(560, 1024):
+        t = (y - 560) / 464.0
         if t < 0.45:
-            return mix(RIVER_TOP, RIVER_MID, t / 0.45)
-        return mix(RIVER_MID, RIVER_BOT, (t - 0.45) / 0.55)
-
-    for y in range(640, 1012):
-        xl = _interp_edge(left, y)
-        xr = _interp_edge(right, y)
-        cv.rect(int(xl), y, int(xr), y, fill=river_col(y))
-    # sun column: broken, organic gold shimmer widening down the
-    # middle — dashes of random length, offset and gaps, never a
-    # regular ladder
-    y = 648
-    i = 0
-    while y < 1000:
-        wdt = 8 + i * 2 + rng.randint(-4, 6)
-        cx = 384 + rng.randint(-14, 14)
-        x = cx - wdt
-        while x < cx + wdt:
-            seg = rng.randint(6, 22)
-            t = max(0.05, 0.5 - i * 0.01)
-            cv.line(x, y, min(x + seg, cx + wdt), y,
-                    mix(GOLD, RIVER_MID, t), 1)
-            x += seg + rng.randint(4, 14)
-        y += rng.randint(6, 12)
-        i += 1
-    # scattered shimmer across the whole river
-    for _ in range(120):
-        x = rng.randint(180, 590)
-        y = rng.randint(660, 1000)
-        ln = rng.randint(6, 34)
-        col = rng.choice([mix(GOLD_LT, RIVER_MID, 0.5),
-                          mix(CREAM, RIVER_MID, 0.6),
-                          mix(RIVER_TOP, RIVER_MID, 0.4)])
+            col = mix(WATER_TOP, WATER_MID, t / 0.45)
+        else:
+            col = mix(WATER_MID, WATER_BOT, (t - 0.45) / 0.55)
+        cv.rect(_water_xl(y), y, _water_xr(y), y, fill=col)
+    # aurora reflection: broken green-gold shimmer, weighted
+    # toward columns where the aurora is bright, fading with
+    # depth — mostly faint, a few bright — never uniform static
+    for _ in range(200):
+        x = rng.randint(60, 708)
+        _c1, _c2, _c3, ray = cols[x]
+        if rng.random() > ray / 1.3:
+            continue
+        y = rng.randint(600, 1000)
+        if x < _water_xl(y) + 4 or x > _water_xr(y) - 30:
+            continue
+        ln = rng.randint(10, 44)
+        fade = max(0.08, (1.0 - (y - 580) / 560.0) ** 1.5)
+        a = (0.15 + 0.35 * ray * fade) if rng.random() < 0.85 \
+            else (0.45 + 0.4 * ray * fade)
+        base = rng.choice([AUR1, AUR2, AUR3, GOLD])
+        col = mix(base, mix(WATER_TOP, WATER_MID, 0.5), 1 - a)
         cv.line(x, y, x + ln, y, col, 1)
-    # boulders along both banks: irregular dark rocks, not pills
-    for (x, y, s) in [(240, 780, 22), (520, 800, 26), (210, 920, 30),
-                      (560, 930, 24), (280, 700, 15), (490, 710, 17)]:
-        cv.polygon([(x - s, y), (x - s // 2, y - s // 2),
-                    (x + s // 2, y - s // 2), (x + s, y + 2),
-                    (x + s // 3, y + s // 3),
-                    (x - s // 2, y + s // 3)], fill=CLIFF_SH)
-        cv.line(x - s // 2, y - s // 2, x + s // 2, y - s // 2,
-                mix(CLIFF_LT, CLIFF_SH, 0.4), 1)
+    # bright reflection column under the lighthouse beam
+    for _ in range(90):
+        x = rng.randint(190, 380)
+        y = rng.randint(600, 960)
+        if x < _water_xl(y) + 4 or x > _water_xr(y) - 30:
+            continue
+        ln = rng.randint(8, 30)
+        col = mix(GOLD_LT, WATER_MID, rng.uniform(0.35, 0.6))
+        cv.line(x, y, x + ln, y, col, 1)
+
+
+def draw_beam(cv, ax, ay, bx, by, peak, wide=70, base=10):
+    """A soft light wedge from (ax, ay) to (bx, by): alpha falls
+    off along the beam and across its widening width."""
+    dx, dy = bx - ax, by - ay
+    length = math.hypot(dx, dy)
+    ux, uy = dx / length, dy / length
+    pix = cv.pix
+    w = cv.w
+    x0 = max(0, min(ax, bx) - 30)
+    x1 = min(cv.w, max(ax, bx) + 30)
+    y0 = max(0, min(ay, by) - 30)
+    y1 = min(cv.h, max(ay, by) + 30)
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            px, py = x - ax, y - ay
+            t = (px * ux + py * uy) / length
+            if t < 0.02 or t > 1.0:
+                continue
+            d = abs(-px * uy + py * ux)
+            half = base + wide * t
+            a = peak * (1 - t) ** 1.4 * math.exp(-((d / half) ** 2))
+            if a < 0.015:
+                continue
+            i = (y * w + x) * 3
+            pix[i] = int(pix[i] * (1 - a) + BEAM[0] * a)
+            pix[i + 1] = int(pix[i + 1] * (1 - a) + BEAM[1] * a)
+            pix[i + 2] = int(pix[i + 2] * (1 - a) + BEAM[2] * a)
+
+
+def draw_lighthouse(cv):
+    """The landmark: a rock islet with a small lighthouse whose
+    beam sweeps the fjord — the one warm light in the cold night."""
+    # islet: wide and prominent, the landmark's base
+    cv.polygon([(328, 592), (358, 546), (410, 546), (440, 592)],
+               fill=ROCK_FG)
+    cv.polyline([(328, 592), (358, 546), (410, 546), (440, 592)],
+                mix(ROCK_FG, SNOW, 0.35), 1)
+    cv.disc(348, 560, 3, mix(SNOW, ROCK_FG, 0.4))
+    cv.disc(424, 564, 2, mix(SNOW, ROCK_FG, 0.4))
+    # rock bumps break the islet's flat top edge
+    cv.polygon([(362, 548), (370, 538), (378, 548)], fill=ROCK_FG)
+    cv.polygon([(402, 548), (410, 540), (418, 548)], fill=ROCK_FG)
+    # tower: tall and tapered, dark, with a gold lamp room
+    cv.polygon([(372, 552), (396, 552), (391, 478), (377, 478)],
+               fill=LIGHT_TOWER)
+    cv.rect(374, 468, 394, 478, fill=GOLD)
+    cv.rect(372, 464, 396, 468, fill=LIGHT_TOWER)
+    cv.disc(384, 473, 3, GOLD_LT)
+    soft_disc(cv, 384, 473, 55, GOLD, 0.6)
+    soft_disc(cv, 384, 473, 110, GOLD, 0.18)
+    # the beam: a strong soft wedge sweeping down-left over the
+    # water (wide wash + bright narrow core), plus a fainter one
+    # to the right
+    draw_beam(cv, 384, 473, 120, 700, 0.85, wide=90, base=14)
+    draw_beam(cv, 384, 473, 120, 700, 0.55, wide=30, base=4)
+    draw_beam(cv, 384, 473, 620, 640, 0.35, wide=60, base=10)
+
+
+def draw_boat(cv, x, y, s, lantern=True):
+    """A tiny wooden boat with a glowing lantern."""
+    cv.polygon([(x - 22 * s, y), (x + 22 * s, y),
+                (x + 16 * s, y + 9 * s), (x - 16 * s, y + 9 * s)],
+               fill=ROCK_FG)
+    cv.line(x - 22 * s, y, x + 22 * s, y, GOLD, 1)
+    if lantern:
+        cv.line(x, y, x, y - 12 * s, ROCK_FG, 1)
+        cv.disc(x, y - 14 * s, 2, GOLD_LT)
+        soft_disc(cv, x, y - 14 * s, 12, GOLD, 0.5)
+    for i, yy in enumerate(range(int(y + 12 * s), int(y + 34 * s), 8)):
+        wdt = int((10 + i * 3) * s)
+        cv.line(x - wdt, yy, x + wdt, yy,
+                mix(GOLD, WATER_MID, 0.4 + i * 0.06), 1)
 
 
 def draw_mist(cv, rng):
-    # valley mist as clusters of small overlapping puffs — soft,
-    # irregular edges, low contrast, never one flat shelf
-    for _ in range(12):
-        cx = rng.randint(230, 540)
-        cy = rng.randint(625, 770)
-        base = RIVER_TOP if cy < 700 else RIVER_MID
-        for _ in range(6):
-            px = cx + rng.randint(-55, 55)
-            py = cy + rng.randint(-8, 8)
-            rx = rng.randint(10, 30)
-            ry = rng.randint(4, 8)
-            col = mix(MIST, base, rng.uniform(0.55, 0.8))
-            cv.ellipse(px - rx, py - ry, px + rx, py + ry, fill=col)
-    # a few small puffs hugging the cliff bases
-    for (cx, cy) in [(210, 660), (556, 672), (300, 740), (480, 748)]:
+    """Valley mist as clusters of soft overlapping puffs —
+    radial falloff, no hard edge, never one flat shelf."""
+    for _ in range(10):
+        cx = rng.randint(150, 640)
+        cy = rng.randint(600, 780)
         for _ in range(4):
+            px = cx + rng.randint(-60, 60)
+            py = cy + rng.randint(-10, 10)
+            r = rng.randint(35, 80)
+            soft_disc(cv, px, py, r, MIST,
+                      rng.uniform(0.05, 0.09))
+    # a few puffs hugging the far shore
+    for (cx, cy) in [(330, 570), (440, 575), (385, 600)]:
+        for _ in range(3):
             px = cx + rng.randint(-30, 30)
             py = cy + rng.randint(-5, 5)
-            rx = rng.randint(8, 22)
-            ry = rng.randint(3, 6)
-            cv.ellipse(px - rx, py - ry, px + rx, py + ry,
-                       fill=mix(MIST, RIVER_MID, 0.65))
-
-
-def draw_boat(cv):
-    # a readable wooden boat with a glowing lantern, low on the river
-    cv.disc(375, 874, 14, mix(GOLD, RIVER_BOT, 0.6))
-    cv.polygon([(312, 902), (438, 902), (420, 922), (330, 922)],
-               fill=ROCK_FG)
-    cv.line(312, 902, 438, 902, GOLD, 2)
-    cv.line(375, 902, 375, 884, ROCK_FG, 2)
-    cv.disc(375, 880, 3, ROCK_FG)
-    cv.disc(375, 874, 5, GOLD)
-    cv.disc(375, 874, 2, GOLD_LT)
-    # short reflection under the hull
-    for i, y in enumerate(range(926, 978, 10)):
-        wdt = 14 + i * 3
-        cv.line(375 - wdt, y, 375 + wdt, y,
-                mix(GOLD, RIVER_BOT, 0.35 + i * 0.05), 1)
-    # a second, distant boat far up the river for depth
-    cv.polygon([(424, 700), (452, 700), (446, 708), (430, 708)],
-               fill=ROCK_FG)
-    cv.disc(438, 694, 2, GOLD_LT)
+            soft_disc(cv, px, py, rng.randint(14, 30), MIST,
+                      rng.uniform(0.05, 0.08))
 
 
 def draw_foreground(cv, rng):
-    # dark shore rocks framing the bottom corners, with shrubs
-    cv.polygon([(0, 1012), (0, 948), (86, 908), (168, 946),
-                (196, 1012)], fill=ROCK_FG)
-    cv.polyline([(0, 948), (86, 908), (168, 946)], CLIFF_LT, 1)
-    cv.polygon([(768, 1012), (768, 956), (690, 920), (624, 952),
-                (600, 1012)], fill=ROCK_FG)
-    cv.polyline([(768, 956), (690, 920), (624, 952)], CLIFF_LT, 1)
-    for (x, y) in [(60, 940), (120, 962), (700, 950), (650, 972)]:
-        cv.disc(x, y, 8, BUSH)
-        cv.disc(x + 10, y + 4, 6, BUSH)
-    # a tiny figure with a lantern on the right bank
-    cv.disc(648, 906, 3, ROCK_FG)
-    cv.line(648, 909, 648, 922, ROCK_FG, 2)
-    cv.line(648, 922, 645, 932, ROCK_FG, 1)
-    cv.line(648, 922, 651, 932, ROCK_FG, 1)
-    cv.disc(656, 914, 3, GOLD_LT)
+    # dark shore rocks framing the bottom corners, with pines
+    cv.polygon([(0, 1024), (0, 962), (90, 920), (180, 952),
+                (210, 1024)], fill=ROCK_FG)
+    cv.polyline([(0, 962), (90, 920), (180, 952)], mix(ROCK_FG, SNOW, 0.3), 1)
+    cv.polygon([(768, 1024), (768, 966), (690, 930), (620, 962),
+                (600, 1024)], fill=ROCK_FG)
+    cv.polyline([(768, 966), (690, 930), (620, 962)],
+                mix(ROCK_FG, SNOW, 0.3), 1)
+    for (x, y, h) in [(60, 950, 34), (115, 968, 28), (155, 945, 30)]:
+        draw_pine(cv, x, y, h)
+    for (x, y, h) in [(700, 955, 30), (650, 972, 26)]:
+        draw_pine(cv, x, y, h)
+    # snow dust on the foreground rocks
+    for _ in range(26):
+        x = rng.randint(0, 210) if rng.random() < 0.5 else rng.randint(600, 768)
+        y = rng.randint(930, 1000)
+        cv.disc(x, y, rng.randint(1, 3), mix(SNOW, ROCK_FG, 0.5))
+    # a lantern post on the right bank, the near human cue
+    cv.line(690, 928, 690, 890, ROCK_FG, 2)
+    cv.line(690, 890, 704, 890, ROCK_FG, 2)
+    cv.disc(704, 896, 3, GOLD_LT)
+    soft_disc(cv, 704, 896, 22, GOLD, 0.5)
+    soft_disc(cv, 704, 896, 44, GOLD, 0.15)
 
 
-def draw_birds(cv):
-    for (x, y, s) in [(200, 250, 7), (260, 228, 6), (540, 262, 7),
-                      (600, 236, 5)]:
-        cv.polyline([(x - s, y), (x, y - 4), (x + s, y)], CLIFF_SH, 1)
+def draw_paper(cv, rng):
+    """Large, very faint warm/cool blotches: paper mottling."""
+    for _ in range(12):
+        x = rng.randint(0, W)
+        y = rng.randint(0, H)
+        r = rng.randint(120, 220)
+        col = rng.choice([(200, 180, 150), (140, 160, 170),
+                          (170, 150, 140)])
+        soft_disc(cv, x, y, r, col, rng.uniform(0.025, 0.05))
 
 
-def draw_grain(cv, rng):
-    """Fine painterly grain over the whole frame (seeded, subtle)."""
-    for _ in range(26000):
-        x = rng.randint(0, W - 1)
-        y = rng.randint(0, H - 1)
-        d = rng.randint(-14, 14)
-        r, g, b = cv.get(x, y)
-        cv._set(x, y, (max(0, min(255, r + d)),
-                       max(0, min(255, g + d)),
-                       max(0, min(255, b + d))))
+_GRAIN_TABLE = [(i * 2654435761 % 29) - 14 for i in range(256)]
+
+
+def draw_grain(cv):
+    """Heavy full-frame film grain: a deterministic per-pixel
+    delta from a 256-entry table, tiled by position."""
+    pix = cv.pix
+    w, h = cv.w, cv.h
+    tab = _GRAIN_TABLE
+    j = 0
+    for y in range(h):
+        ro = (y * 57) & 255
+        for x in range(w):
+            d = tab[(x * 31 + ro) & 255]
+            r = pix[j] + d
+            pix[j] = 0 if r < 0 else (255 if r > 255 else r)
+            g = pix[j + 1] + d
+            pix[j + 1] = 0 if g < 0 else (255 if g > 255 else g)
+            b = pix[j + 2] + d
+            pix[j + 2] = 0 if b < 0 else (255 if b > 255 else b)
+            j += 3
 
 
 def draw_frame(cv):
@@ -866,12 +872,12 @@ def draw_frame(cv):
 
 
 def draw_title(cv):
-    draw_centered(cv, "serif_bold", 118, 384, 46, "KAVIRA", CREAM)
-    cv.line(292, 180, 476, 180, GOLD, 2)
-    sub = "THE GLASS BRIDGE"
-    pitch = 23
+    draw_centered(cv, "serif_bold", 112, 384, 48, "AURELIS", CREAM)
+    cv.line(292, 178, 476, 178, GOLD, 2)
+    sub = "THE AURORA FJORD"
+    pitch = 22
     wdt = tracked_width(sub, pitch)
-    draw_tracked(cv, "sans", 24, 384 - wdt / 2, 196, sub, GOLD, pitch)
+    draw_tracked(cv, "sans", 22, 384 - wdt / 2, 196, sub, GOLD, pitch)
 
 
 # ------------------------------------------------------------------- main
@@ -880,22 +886,23 @@ def main():
     here = os.path.dirname(os.path.abspath(__file__))
     init_fonts(os.path.join(here, "fonts.bin"))
 
+    cols = aurora_columns()
     cv = Canvas(W, H, SKY_TOP)
     draw_sky(cv)
-    draw_clouds(cv, rng)
-    draw_sun(cv)
-    draw_birds(cv)
-    draw_title(cv)
-    draw_valley_floor(cv)
-    draw_far_wall(cv, rng)
-    draw_river(cv, rng)
-    draw_left_cliff(cv, rng)
-    draw_right_cliff(cv, rng)
-    draw_bridge(cv, rng)
+    draw_stars(cv, rng)
+    draw_aurora(cv)
+    draw_far_ridge(cv, rng)
+    draw_left_mountain(cv, rng)
+    draw_right_mountain(cv, rng)
+    draw_water(cv, rng, cols)
+    draw_lighthouse(cv)
+    draw_boat(cv, 250, 830, 1.4)
+    draw_boat(cv, 560, 720, 1.0)
     draw_mist(cv, rng)
-    draw_boat(cv)
     draw_foreground(cv, rng)
-    draw_grain(cv, rng)
+    draw_title(cv)
+    draw_paper(cv, rng)
+    draw_grain(cv)
     draw_frame(cv)
 
     out = os.environ.get("OUTPUT", "/output/entry.png")
