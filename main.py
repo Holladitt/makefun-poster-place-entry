@@ -19,6 +19,13 @@ v2 rebuild (v1 LUMARA was held by the owner as too flat/empty):
 painterly and dense — multi-stop gradients, stratified cliffs with
 facets, layered valley mist, grain over the whole frame, and every
 zone (sky, cliffs, river, foreground) filled.
+
+v3 (v2 KAVIRA was held: the concept was right, the execution was
+not): solid glowing sun disc with halo (no concentric rings), the
+bridge rebuilt as the hero (thick deck, towers, cables, lanterns,
+six walkers), wavy irregular strata with zigzag cracks and shadow
+pockets, organic broken river shimmer, and the valley floor extended
+up behind the far wall so no dark background triangles show.
 """
 
 import math
@@ -391,16 +398,62 @@ def point_in_poly(x, y, pts):
     return inside
 
 
-def strata_fill(cv, pts, y_top, y_bot, colors):
-    """Fill a polygon with horizontal strata bands (painterly rock)."""
-    n = len(colors)
+def _poly_xs_at_y(pts, y):
+    """Sorted x-intersections of a polygon with scanline y."""
+    xs = []
+    n = len(pts)
     for i in range(n):
-        f0, f1 = i / n, (i + 1) / n
-        y0 = y_top + (y_bot - y_top) * f0
-        y1 = y_top + (y_bot - y_top) * f1
-        sub = clip_y(pts, y0, y1)
-        if len(sub) >= 3:
-            cv.polygon(sub, fill=colors[i])
+        x0, y0 = pts[i]
+        x1, y1 = pts[(i + 1) % n]
+        if (y0 <= y < y1) or (y1 <= y < y0):
+            xs.append(x0 + (y - y0) * (x1 - x0) / (y1 - y0))
+    xs.sort()
+    return xs
+
+
+def zigzag_crack(cv, rng, x0, y0, x1, y1, col, width=1):
+    """A crack that wanders: segments with jittered midpoints."""
+    pts = []
+    segs = 5
+    for i in range(segs + 1):
+        f = i / segs
+        x = x0 + (x1 - x0) * f + (rng.randint(-7, 7) if 0 < i < segs else 0)
+        y = y0 + (y1 - y0) * f
+        pts.append((x, y))
+    cv.polyline(pts, col, width)
+
+
+def strata_fill(cv, pts, y_top, y_bot, colors, amp=7.0, ph=0.0):
+    """Fill a polygon with strata bands whose boundaries wander
+    with x (two sine wobbles), so the rock reads as irregular
+    layers instead of flat wallpaper stripes."""
+    n = len(colors)
+    span = max(y_bot - y_top, 1)
+    ys = [p[1] for p in pts]
+    for y in range(max(int(min(ys)), 0), min(int(max(ys)), cv.h - 1) + 1):
+        xs = _poly_xs_at_y(pts, y)
+        for k in range(0, len(xs) - 1, 2):
+            xa, xb = int(math.ceil(xs[k])), int(math.floor(xs[k + 1]))
+            if xb < xa:
+                continue
+            run_col = None
+            run_start = xa
+            for x in range(xa, xb + 1):
+                wob = (amp * math.sin(x * 0.013 + ph)
+                       + amp * 0.55 * math.sin(x * 0.029 + ph * 1.7))
+                f = (y + wob - y_top) / span
+                bi = int(f * n)
+                if bi < 0:
+                    bi = 0
+                elif bi >= n:
+                    bi = n - 1
+                if run_col is None:
+                    run_col, run_start = bi, x
+                elif bi != run_col:
+                    cv.rect(run_start, y, x - 1, y, fill=colors[run_col])
+                    run_col, run_start = bi, x
+            if run_col is not None:
+                cv.rect(run_start, y, xb, y, fill=colors[run_col])
 
 
 def facets(cv, pts, rng, count, cols):
@@ -413,6 +466,21 @@ def facets(cv, pts, rng, count, cols):
         if not point_in_poly(x, y, pts):
             continue
         s = rng.randint(4, 14)
+        tri = [(x, y), (x + rng.randint(-s, s), y + rng.randint(2, s)),
+               (x + rng.randint(-s, s), y + rng.randint(2, s))]
+        cv.polygon(tri, fill=rng.choice(cols))
+
+
+def facet_cluster(cv, pts, rng, cx, cy, r, count, cols):
+    """A soft irregular patch: small triangles clustered around
+    (cx, cy), anchored inside the polygon — reads as a shadow
+    hollow without any hard geometric edge."""
+    for _ in range(count):
+        x = cx + rng.randint(-r, r)
+        y = cy + rng.randint(-r // 2, r // 2)
+        if not point_in_poly(x, y, pts):
+            continue
+        s = rng.randint(3, 9)
         tri = [(x, y), (x + rng.randint(-s, s), y + rng.randint(2, s)),
                (x + rng.randint(-s, s), y + rng.randint(2, s))]
         cv.polygon(tri, fill=rng.choice(cols))
@@ -444,24 +512,27 @@ def draw_clouds(cv, rng):
 
 
 def draw_sun(cv):
-    # wide soft glow, then the disc, low over the far canyon rim
-    cv.disc(384, 402, 110, mix(SKY_4, SUN, 0.25))
-    cv.disc(384, 402, 96, mix(SKY_4, SUN, 0.35))
-    cv.disc(384, 402, 82, mix(SKY_4, SUN, 0.45))
-    cv.disc(384, 402, 62, mix(SKY_4, SUN, 0.65))
-    cv.disc(384, 402, 48, SUN)
-    cv.disc(384, 402, 38, SUN_CORE)
+    # solid glowing disc with a soft halo: a smooth radial gradient
+    # built from many 1px-step discs, so no ring edges show; the
+    # halo edge melts into the sky colour at this height. Low over
+    # the far canyon rim, so the wall cuts its lower half.
+    cx, cy, r_max = 384, 402, 168
+    edge = mix(SKY_4, HORIZON, 0.55)
+    for r in range(r_max, 0, -1):
+        t = 1.0 - r / r_max
+        cv.disc(cx, cy, r, mix(edge, SUN_CORE, t ** 2.0))
 
 
 def draw_far_wall(cv, rng):
     # hazy canyon wall across the gap, sun just over its rim
-    pts = [(212, 402), (556, 402), (540, 520), (502, 640),
-           (266, 640), (228, 520)]
+    pts = [(212, 402), (556, 402), (540, 520), (516, 640),
+           (252, 640), (228, 520)]
     strata_fill(cv, pts, 402, 640,
                 [FAR_WALL, mix(FAR_WALL, FAR_WALL_DK, 0.3),
                  mix(FAR_WALL, SKY_4, 0.25), FAR_WALL_DK,
                  mix(FAR_WALL, FAR_WALL_DK, 0.45), FAR_WALL,
-                 mix(FAR_WALL, SKY_4, 0.15), FAR_WALL_DK])
+                 mix(FAR_WALL, SKY_4, 0.15), FAR_WALL_DK],
+                amp=5.0, ph=1.3)
     facets(cv, pts, rng, 60, [mix(FAR_WALL, CREAM, 0.25),
                               mix(FAR_WALL, FAR_WALL_DK, 0.4)])
     # thin dark cracks in the far wall, not pillars
@@ -495,7 +566,8 @@ def draw_left_cliff(cv, rng):
                 [CLIFF_LT, CLIFF, mix(CLIFF, STRATA_GOLD, 0.5),
                  STRATA_GOLD, CLIFF_DK, CLIFF,
                  mix(CLIFF_LT, CLIFF, 0.5), CLIFF_DK,
-                 mix(CLIFF, CLIFF_DK, 0.5), CLIFF_SH])
+                 mix(CLIFF, CLIFF_DK, 0.5), CLIFF_SH],
+                amp=8.0, ph=0.4)
     # sunlit inner face: a lighter wedge along the gap side
     face = [(238, 392), (268, 470), (246, 566), (206, 664),
             (158, 752), (118, 828), (150, 828), (196, 700),
@@ -504,10 +576,19 @@ def draw_left_cliff(cv, rng):
     facets(cv, pts, rng, 140, [mix(CLIFF, CREAM, 0.22),
                                mix(CLIFF_DK, CLIFF_SH, 0.5),
                                mix(STRATA_GOLD, CLIFF, 0.4)])
-    # vertical cracks break the horizontal banding
+    # wandering cracks break the banding, plus dark shadow pockets
+    # and a light rock spur on the face
+    crack_col = mix(CLIFF_DK, CLIFF_SH, 0.5)
     for (x0, y0, x1, y1) in [(120, 400, 100, 560), (200, 480, 220, 640),
-                             (80, 600, 60, 760), (160, 700, 180, 860)]:
-        cv.line(x0, y0, x1, y1, mix(CLIFF_DK, CLIFF_SH, 0.5), 1)
+                             (80, 600, 60, 760), (160, 700, 180, 860),
+                             (60, 420, 90, 520), (190, 600, 160, 720)]:
+        zigzag_crack(cv, rng, x0, y0, x1, y1, crack_col, 1)
+    facet_cluster(cv, pts, rng, 165, 560, 45, 26,
+                  [mix(CLIFF_DK, CLIFF_SH, 0.45),
+                   mix(CLIFF_DK, CLIFF_SH, 0.6)])
+    facet_cluster(cv, pts, rng, 108, 790, 30, 22,
+                  [mix(CLIFF_DK, CLIFF_SH, 0.45),
+                   mix(CLIFF_DK, CLIFF_SH, 0.6)])
     # terraced dwellings cut into the rim
     draw_house(cv, 30, 348, 22, 15)
     draw_house(cv, 96, 356, 18, 12)
@@ -526,7 +607,8 @@ def draw_right_cliff(cv, rng):
                 [CLIFF_LT, CLIFF, mix(CLIFF, STRATA_GOLD, 0.5),
                  STRATA_GOLD, CLIFF_DK, CLIFF,
                  mix(CLIFF_LT, CLIFF, 0.5), CLIFF_DK,
-                 mix(CLIFF, CLIFF_DK, 0.5), CLIFF_SH])
+                 mix(CLIFF, CLIFF_DK, 0.5), CLIFF_SH],
+                amp=8.0, ph=2.1)
     # the right face is in shade: a darker wedge along the gap side
     face = [(530, 392), (500, 470), (522, 566), (562, 664),
             (610, 752), (650, 828), (622, 828), (574, 700),
@@ -535,10 +617,19 @@ def draw_right_cliff(cv, rng):
     facets(cv, pts, rng, 140, [mix(CLIFF, CREAM, 0.2),
                                mix(CLIFF_DK, CLIFF_SH, 0.5),
                                mix(STRATA_GOLD, CLIFF, 0.35)])
-    # vertical cracks break the horizontal banding
+    # wandering cracks break the banding, plus dark shadow pockets
+    # and a light rock spur on the face
+    crack_col = mix(CLIFF_DK, CLIFF_SH, 0.5)
     for (x0, y0, x1, y1) in [(648, 400, 668, 560), (568, 480, 548, 640),
-                             (688, 600, 708, 760), (608, 700, 588, 860)]:
-        cv.line(x0, y0, x1, y1, mix(CLIFF_DK, CLIFF_SH, 0.5), 1)
+                             (688, 600, 708, 760), (608, 700, 588, 860),
+                             (708, 420, 678, 520), (578, 600, 608, 720)]:
+        zigzag_crack(cv, rng, x0, y0, x1, y1, crack_col, 1)
+    facet_cluster(cv, pts, rng, 603, 560, 45, 26,
+                  [mix(CLIFF_DK, CLIFF_SH, 0.45),
+                   mix(CLIFF_DK, CLIFF_SH, 0.6)])
+    facet_cluster(cv, pts, rng, 662, 790, 20, 22,
+                  [mix(CLIFF_DK, CLIFF_SH, 0.45),
+                   mix(CLIFF_DK, CLIFF_SH, 0.6)])
     draw_house(cv, 700, 348, 22, 15)
     draw_house(cv, 640, 356, 18, 12)
     draw_house(cv, 580, 372, 20, 14)
@@ -550,32 +641,64 @@ def draw_right_cliff(cv, rng):
 
 
 def draw_bridge(cv, rng):
-    """The glass sky-bridge: a bold pale-gold arc across the gap,
-    dark shadow line underneath to separate it from the far wall,
-    gold rails, thin suspenders, three tiny walkers with a lantern."""
+    """The glass sky-bridge, the poster's hero: a thick pale-gold
+    deck arcing across the gap, suspension towers anchoring both
+    rims, cables with suspenders, lanterns glowing along the deck,
+    and six tiny walkers crossing at dawn."""
     def arc_y(x):
-        t = (x - 248) / (520 - 248)
-        return 404 + 66 * 4 * t * (1 - t)
-    xs = list(range(248, 521, 3))
+        t = (x - 240) / (528 - 240)
+        return 404 + 70 * 4 * t * (1 - t)
+
+    cable_pts = [(240, 352), (300, 388), (384, 400),
+                 (468, 388), (524, 352)]
+
+    def cable_y(x):
+        for i in range(len(cable_pts) - 1):
+            x0, y0 = cable_pts[i]
+            x1, y1 = cable_pts[i + 1]
+            if x0 <= x <= x1:
+                f = (x - x0) / (x1 - x0)
+                return y0 + (y1 - y0) * f
+        return cable_pts[-1][1]
+
+    xs = list(range(240, 529, 2))
+    top = [(x, arc_y(x) - 26) for x in xs]
     deck = [(x, arc_y(x)) for x in xs]
-    upper = [(x, arc_y(x) - 13) for x in xs]
-    shadow = [(x, arc_y(x) + 3) for x in xs]
-    cv.polyline(shadow, mix(CLIFF_SH, SKY_4, 0.4), 3)
-    cv.polygon(upper + list(reversed(deck)),
-               fill=mix(GOLD_LT, CREAM, 0.65))
-    cv.polyline(upper, GOLD, 2)
-    cv.polyline(deck, mix(GOLD, CLIFF_DK, 0.3), 2)
-    for x in range(268, 505, 24):
+    shadow = [(x, arc_y(x) + 4) for x in xs]
+    cv.polyline(shadow, mix(CLIFF_SH, SKY_4, 0.35), 4)
+    # end towers: dark piers rising above the deck at both rims
+    for tx in (240, 524):
+        y = arc_y(tx)
+        cv.rect(tx - 7, y - 52, tx + 7, y + 6,
+                fill=mix(CLIFF_DK, CLIFF_SH, 0.35))
+        cv.rect(tx - 9, y - 56, tx + 9, y - 52,
+                fill=mix(CLIFF_DK, CLIFF_SH, 0.35))
+    # suspension cables from tower tops, sagging to mid-span
+    cv.polyline(cable_pts, mix(GOLD, CLIFF_DK, 0.25), 2)
+    for x in range(262, 510, 18):
+        cv.line(x, cable_y(x), x, arc_y(x) - 26,
+                mix(GOLD, SKY_4, 0.35), 1)
+    # the deck itself: bright pale gold, cream top edge, darker
+    # gold underside, with glass streaks catching the dawn
+    cv.polygon(top + list(reversed(deck)),
+               fill=mix(GOLD_LT, GOLD, 0.35))
+    cv.polyline(top, GOLD, 2)
+    cv.polyline(deck, mix(GOLD, CLIFF_DK, 0.35), 2)
+    for x in (276, 336, 420, 478):
         y = arc_y(x)
-        cv.line(x, y - 13, x, y + 10, mix(GOLD, SKY_4, 0.3), 1)
-    for x in (300, 360, 420, 470):
+        cv.line(x, y - 23, x + 16, y - 7, mix(CREAM, GOLD_LT, 0.6), 1)
+    # lanterns glowing under the deck, spaced along the span
+    for x in range(258, 516, 30):
         y = arc_y(x)
-        cv.line(x, y - 10, x + 24, y - 10, CREAM, 1)
-    # three tiny walkers, the human-scale cue
-    for x in (330, 390, 450):
-        y = arc_y(x)
-        cv.disc(x, y - 16, 3, CLIFF_SH)
-        cv.line(x, y - 13, x, y - 5, CLIFF_SH, 2)
+        cv.line(x, y, x, y + 8, GOLD, 1)
+        cv.disc(x, y + 11, 7, mix(GOLD_LT, FAR_WALL, 0.45))
+        cv.disc(x, y + 11, 3, GOLD)
+        cv.disc(x, y + 11, 2, GOLD_LT)
+    # six tiny walkers, the human-scale cue
+    for x in (296, 332, 368, 404, 440, 476):
+        y = arc_y(x) - 26
+        cv.disc(x, y - 17, 3, CLIFF_SH)
+        cv.line(x, y - 14, x, y - 5, CLIFF_SH, 2)
         cv.line(x, y - 5, x - 3, y, CLIFF_SH, 1)
         cv.line(x, y - 5, x + 3, y, CLIFF_SH, 1)
         cv.disc(x + 5, y - 10, 2, GOLD_LT)
@@ -593,10 +716,13 @@ def _interp_edge(edge, y):
 
 
 def draw_valley_floor(cv):
-    """Rocky valley floor under the river, so no sky-coloured gaps
-    show between river edge and cliff base."""
-    cv.vgrad(0, 640, W, 372, [(0.0, (132, 78, 76)),
-                               (0.5, (96, 62, 70)),
+    """Rocky valley floor from the horizon down, so no dark
+    sky-coloured gaps show between the far wall, the cliffs and
+    the river — those gaps read as black pyramids in v2. Drawn
+    BEFORE the far wall so the wall covers it where they overlap."""
+    cv.vgrad(0, 470, W, 542, [(0.0, (150, 92, 92)),
+                               (0.25, (132, 78, 76)),
+                               (0.55, (96, 62, 70)),
                                (1.0, (52, 42, 66))])
 
 
@@ -614,11 +740,23 @@ def draw_river(cv, rng):
         xl = _interp_edge(left, y)
         xr = _interp_edge(right, y)
         cv.rect(int(xl), y, int(xr), y, fill=river_col(y))
-    # sun column: gold dashes widening down the middle
-    for i, y in enumerate(range(648, 1000, 10)):
-        wdt = 10 + i * 2
-        t = 0.55 - i * 0.012
-        cv.line(384 - wdt, y, 384 + wdt, y, mix(GOLD, RIVER_MID, t), 1)
+    # sun column: broken, organic gold shimmer widening down the
+    # middle — dashes of random length, offset and gaps, never a
+    # regular ladder
+    y = 648
+    i = 0
+    while y < 1000:
+        wdt = 8 + i * 2 + rng.randint(-4, 6)
+        cx = 384 + rng.randint(-14, 14)
+        x = cx - wdt
+        while x < cx + wdt:
+            seg = rng.randint(6, 22)
+            t = max(0.05, 0.5 - i * 0.01)
+            cv.line(x, y, min(x + seg, cx + wdt), y,
+                    mix(GOLD, RIVER_MID, t), 1)
+            x += seg + rng.randint(4, 14)
+        y += rng.randint(6, 12)
+        i += 1
     # scattered shimmer across the whole river
     for _ in range(120):
         x = rng.randint(180, 590)
@@ -748,8 +886,8 @@ def main():
     draw_sun(cv)
     draw_birds(cv)
     draw_title(cv)
-    draw_far_wall(cv, rng)
     draw_valley_floor(cv)
+    draw_far_wall(cv, rng)
     draw_river(cv, rng)
     draw_left_cliff(cv, rng)
     draw_right_cliff(cv, rng)
