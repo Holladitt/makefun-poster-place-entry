@@ -23,6 +23,15 @@ no hard geometry, no flat horizontal bands, no concentric arcs, no
 line ladders. Organic value-noise shapes, soft multi-stop gradients,
 heavy full-frame grain, layered atmospheric mist, light that spreads
 (aurora glow, lighthouse beam, lantern glows) instead of hard discs.
+
+v5 (v4 AURELIS was held: the aurora was the best thing yet, but
+the lighthouse was too small and the lower water too empty): same
+place, top-3 formula — the lighthouse is now the dominant 50%+
+frame hero (2.5-3x bigger, tall tower up into the aurora, strong
+beam both ways), the water is full (wide gold + green reflection
+columns under the tower, five lantern boats, more mist, a textured
+near shore), the far ridge is deeper and hazier, the foreground
+rocks are lighter and faceted. The aurora itself is untouched.
 """
 
 import math
@@ -616,12 +625,20 @@ def _snow_band(cv, ridge, depth, col, rng):
 
 
 def draw_far_ridge(cv, rng):
-    ridge = ridge_pts(255, 515, 528, 30, 7)
-    pts = ridge + [(515, 575), (255, 575)]
-    cv.polygon(pts, fill=mix(MTN_FAR, SKY_3, 0.35))
+    # a second, hazier ridge behind the main one, for depth
+    ridge2 = ridge_pts(260, 505, 510, 36, 23)
+    pts2 = ridge2 + [(510, 575), (260, 575)]
+    cv.polygon(pts2, fill=mix(MTN_FAR, SKY_3, 0.55))
+    ridge = ridge_pts(250, 512, 520, 48, 7)
+    pts = ridge + [(512, 575), (250, 575)]
+    cv.polygon(pts, fill=mix(MTN_FAR, SKY_3, 0.15))
     _snow_band(cv, ridge, 9, mix(SNOW, MTN_FAR, 0.25), rng)
     facets(cv, pts, rng, 40, [mix(MTN_FAR, MTN_FAR_LT, 0.5),
                               mix(MTN_FAR, SNOW, 0.35)])
+    # mist hugging the ridge base, softening the pale band
+    for (cx, cy, r, pk) in [(310, 545, 55, 0.07), (360, 535, 65, 0.08),
+                            (420, 550, 50, 0.07), (465, 540, 60, 0.06)]:
+        soft_disc(cv, cx, cy, r, MIST, pk)
 
 
 def draw_left_mountain(cv, rng):
@@ -700,14 +717,25 @@ def draw_water(cv, rng, cols):
         base = rng.choice([AUR1, AUR2, AUR3, GOLD])
         col = mix(base, mix(WATER_TOP, WATER_MID, 0.5), 1 - a)
         cv.line(x, y, x + ln, y, col, 1)
-    # bright reflection column under the lighthouse beam
-    for _ in range(90):
-        x = rng.randint(190, 380)
+    # bright reflection column under the lighthouse beam —
+    # v5: wider and taller, directly under the big tower, plus
+    # a green aurora column in the same place
+    for _ in range(140):
+        x = rng.randint(300, 470)
         y = rng.randint(600, 960)
         if x < _water_xl(y) + 4 or x > _water_xr(y) - 30:
             continue
         ln = rng.randint(8, 30)
         col = mix(GOLD_LT, WATER_MID, rng.uniform(0.35, 0.6))
+        cv.line(x, y, x + ln, y, col, 1)
+    for _ in range(60):
+        x = rng.randint(310, 460)
+        y = rng.randint(600, 940)
+        if x < _water_xl(y) + 4 or x > _water_xr(y) - 30:
+            continue
+        ln = rng.randint(8, 30)
+        base = rng.choice([AUR1, AUR2])
+        col = mix(base, WATER_MID, rng.uniform(0.4, 0.65))
         cv.line(x, y, x + ln, y, col, 1)
 
 
@@ -740,33 +768,46 @@ def draw_beam(cv, ax, ay, bx, by, peak, wide=70, base=10):
             pix[i + 2] = int(pix[i + 2] * (1 - a) + BEAM[2] * a)
 
 
-def draw_lighthouse(cv):
-    """The landmark: a rock islet with a small lighthouse whose
-    beam sweeps the fjord — the one warm light in the cold night."""
+def draw_lighthouse(cv, rng):
+    """The landmark, v5: a BIG rock islet with a tall lighthouse
+    whose beam sweeps the fjord — the one warm light in the cold
+    night, now the dominant 50%+ frame hero (top-3 formula)."""
     # islet: wide and prominent, the landmark's base
-    cv.polygon([(328, 592), (358, 546), (410, 546), (440, 592)],
-               fill=ROCK_FG)
-    cv.polyline([(328, 592), (358, 546), (410, 546), (440, 592)],
-                mix(ROCK_FG, SNOW, 0.35), 1)
-    cv.disc(348, 560, 3, mix(SNOW, ROCK_FG, 0.4))
-    cv.disc(424, 564, 2, mix(SNOW, ROCK_FG, 0.4))
+    islet = [(296, 604), (330, 540), (440, 540), (474, 604)]
+    cv.polygon(islet, fill=ROCK_FG)
+    cv.polyline(islet, mix(ROCK_FG, SNOW, 0.35), 1)
+    facets(cv, islet, rng, 26, [mix(ROCK_FG, MTN_FAR, 0.5),
+                                mix(ROCK_FG, SNOW, 0.25),
+                                mix(ROCK_FG, (8, 12, 30), 0.4)])
+    cv.disc(330, 556, 3, mix(SNOW, ROCK_FG, 0.4))
+    cv.disc(448, 560, 2, mix(SNOW, ROCK_FG, 0.4))
+    cv.disc(384, 548, 2, mix(SNOW, ROCK_FG, 0.4))
     # rock bumps break the islet's flat top edge
-    cv.polygon([(362, 548), (370, 538), (378, 548)], fill=ROCK_FG)
-    cv.polygon([(402, 548), (410, 540), (418, 548)], fill=ROCK_FG)
-    # tower: tall and tapered, dark, with a gold lamp room
-    cv.polygon([(372, 552), (396, 552), (391, 478), (377, 478)],
+    cv.polygon([(340, 542), (348, 532), (356, 542)], fill=ROCK_FG)
+    cv.polygon([(420, 542), (428, 534), (436, 542)], fill=ROCK_FG)
+    # tower: tall and tapered, dark, with a gold lamp room —
+    # 2.5-3x bigger than v4, peak up inside the aurora curtain
+    cv.polygon([(352, 552), (416, 552), (402, 300), (366, 300)],
                fill=LIGHT_TOWER)
-    cv.rect(374, 468, 394, 478, fill=GOLD)
-    cv.rect(372, 464, 396, 468, fill=LIGHT_TOWER)
-    cv.disc(384, 473, 3, GOLD_LT)
-    soft_disc(cv, 384, 473, 55, GOLD, 0.6)
-    soft_disc(cv, 384, 473, 110, GOLD, 0.18)
+    cv.rect(360, 470, 408, 478, fill=mix(LIGHT_TOWER, CREAM, 0.30))
+    cv.rect(364, 390, 404, 398, fill=mix(LIGHT_TOWER, CREAM, 0.25))
+    # warm edge-light on the beam side, so the tower is not a
+    # flat black monolith
+    cv.line(366, 300, 352, 552, mix(LIGHT_TOWER, GOLD, 0.35), 1)
+    # small lit windows down the tower face (NOCTARA-style)
+    for (wy, s) in [(338, 8), (408, 8), (478, 8)]:
+        cv.rect(380, wy, 380 + s, wy + s + 2, fill=GOLD)
+        soft_disc(cv, 384, wy + s // 2, 10, GOLD, 0.4)
+    cv.rect(362, 286, 406, 300, fill=GOLD)
+    cv.rect(360, 282, 408, 286, fill=LIGHT_TOWER)
+    cv.disc(384, 293, 4, GOLD_LT)
+    soft_disc(cv, 384, 293, 80, GOLD, 0.6)
+    soft_disc(cv, 384, 293, 160, GOLD, 0.18)
     # the beam: a strong soft wedge sweeping down-left over the
-    # water (wide wash + bright narrow core), plus a fainter one
-    # to the right
-    draw_beam(cv, 384, 473, 120, 700, 0.85, wide=90, base=14)
-    draw_beam(cv, 384, 473, 120, 700, 0.55, wide=30, base=4)
-    draw_beam(cv, 384, 473, 620, 640, 0.35, wide=60, base=10)
+    # water (wide wash + bright narrow core), plus one to the right
+    draw_beam(cv, 384, 293, 100, 640, 0.9, wide=110, base=16)
+    draw_beam(cv, 384, 293, 100, 640, 0.55, wide=36, base=5)
+    draw_beam(cv, 384, 293, 660, 600, 0.65, wide=70, base=12)
 
 
 def draw_boat(cv, x, y, s, lantern=True):
@@ -788,9 +829,9 @@ def draw_boat(cv, x, y, s, lantern=True):
 def draw_mist(cv, rng):
     """Valley mist as clusters of soft overlapping puffs —
     radial falloff, no hard edge, never one flat shelf."""
-    for _ in range(10):
+    for _ in range(16):
         cx = rng.randint(150, 640)
-        cy = rng.randint(600, 780)
+        cy = rng.randint(600, 860)
         for _ in range(4):
             px = cx + rng.randint(-60, 60)
             py = cy + rng.randint(-10, 10)
@@ -798,7 +839,8 @@ def draw_mist(cv, rng):
             soft_disc(cv, px, py, r, MIST,
                       rng.uniform(0.05, 0.09))
     # a few puffs hugging the far shore
-    for (cx, cy) in [(330, 570), (440, 575), (385, 600)]:
+    for (cx, cy) in [(330, 570), (440, 575), (385, 600),
+                     (300, 575), (480, 580)]:
         for _ in range(3):
             px = cx + rng.randint(-30, 30)
             py = cy + rng.randint(-5, 5)
@@ -807,14 +849,33 @@ def draw_mist(cv, rng):
 
 
 def draw_foreground(cv, rng):
-    # dark shore rocks framing the bottom corners, with pines
-    cv.polygon([(0, 1024), (0, 962), (90, 920), (180, 952),
-                (210, 1024)], fill=ROCK_FG)
-    cv.polyline([(0, 962), (90, 920), (180, 952)], mix(ROCK_FG, SNOW, 0.3), 1)
-    cv.polygon([(768, 1024), (768, 966), (690, 930), (620, 962),
-                (600, 1024)], fill=ROCK_FG)
+    # dark shore rocks framing the bottom corners, with pines —
+    # v5: lighter, faceted, snow on the top edges (no black
+    # triangles anymore)
+    left_pts = [(0, 1024), (0, 962), (90, 920), (180, 952),
+                (210, 1024)]
+    cv.polygon(left_pts, fill=mix(ROCK_FG, MTN_L, 0.45))
+    cv.polyline([(0, 962), (90, 920), (180, 952)],
+                mix(ROCK_FG, SNOW, 0.3), 1)
+    facets(cv, left_pts, rng, 40, [mix(ROCK_FG, SNOW, 0.3),
+                                   mix(ROCK_FG, MTN_FAR, 0.4),
+                                   mix(ROCK_FG, (8, 12, 30), 0.4)])
+    for (x, y, r) in [(15, 958, 2), (30, 950, 2), (60, 938, 3),
+                      (90, 922, 2), (120, 935, 2), (150, 945, 3),
+                      (180, 950, 2), (195, 965, 2)]:
+        cv.disc(x, y, r, mix(SNOW, ROCK_FG, 0.5))
+    right_pts = [(768, 1024), (768, 966), (690, 930), (620, 962),
+                 (600, 1024)]
+    cv.polygon(right_pts, fill=mix(ROCK_FG, MTN_R, 0.45))
     cv.polyline([(768, 966), (690, 930), (620, 962)],
                 mix(ROCK_FG, SNOW, 0.3), 1)
+    facets(cv, right_pts, rng, 40, [mix(ROCK_FG, SNOW, 0.3),
+                                    mix(ROCK_FG, MTN_FAR, 0.4),
+                                    mix(ROCK_FG, (8, 12, 30), 0.4)])
+    for (x, y, r) in [(750, 958, 2), (740, 952, 2), (720, 945, 3),
+                      (690, 932, 2), (670, 950, 2), (660, 945, 2),
+                      (635, 955, 3), (610, 970, 2)]:
+        cv.disc(x, y, r, mix(SNOW, ROCK_FG, 0.5))
     for (x, y, h) in [(60, 950, 34), (115, 968, 28), (155, 945, 30)]:
         draw_pine(cv, x, y, h)
     for (x, y, h) in [(700, 955, 30), (650, 972, 26)]:
@@ -895,9 +956,12 @@ def main():
     draw_left_mountain(cv, rng)
     draw_right_mountain(cv, rng)
     draw_water(cv, rng, cols)
-    draw_lighthouse(cv)
+    draw_lighthouse(cv, rng)
     draw_boat(cv, 250, 830, 1.4)
     draw_boat(cv, 560, 720, 1.0)
+    draw_boat(cv, 430, 770, 1.2)
+    draw_boat(cv, 150, 690, 0.9)
+    draw_boat(cv, 610, 880, 1.3)
     draw_mist(cv, rng)
     draw_foreground(cv, rng)
     draw_title(cv)

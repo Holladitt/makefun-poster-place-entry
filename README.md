@@ -8,9 +8,14 @@ make.fun entry for [The Poster for a Place That Isn't There](https://make.fun/bo
 
 A travel poster for **AURELIS, the Aurora Fjord** — a night fjord
 where the aurora burns green over still water. One impossible
-landmark, a lighthouse on a rock islet, sweeps its beam across the
-aurora-lit fjord; snow-capped ridges frame the channel, mist drifts
-over the water, and small lantern boats cross the reflections.
+landmark, a tall lighthouse on a rock islet, sweeps its beam across
+the aurora-lit fjord; snow-capped ridges frame the channel, mist
+drifts over the water, and small lantern boats cross the reflections.
+
+v5: the lighthouse is the dominant hero (tall tower up into the
+aurora, strong beam both ways) and the water is full — wide
+reflection columns, five lantern boats, more mist, a textured
+near shore.
 
 ## Run
 
