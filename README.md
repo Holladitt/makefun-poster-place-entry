@@ -1,4 +1,4 @@
-# LUMARA — The Lantern Isles
+# KAVIRA — The Glass Bridge
 
 [![make.fun](https://img.shields.io/badge/make.fun-bounty-blue)](https://make.fun/bounty/the-poster-for-a-place-that-i-2-20261121-0539)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -6,11 +6,11 @@
 
 make.fun entry for [The Poster for a Place That Isn't There](https://make.fun/bounty/the-poster-for-a-place-that-i-2-20261121-0539).
 
-A travel poster for **LUMARA, the Lantern Isles** — a valley of floating
-islands at dusk. One great island carries a lantern village on its flat
-top and pours waterfalls off its edges into the mist; a pale full moon
-rises behind it, and a tiny paper-lantern boat drifts on the still lake
-below.
+A travel poster for **KAVIRA, the Glass Bridge** — a dawn canyon in a
+high desert. One impossible landmark, a glass sky-bridge, arcs across
+the canyon gap between two terraced cliff cities as the sun rises over
+a far canyon wall; the river below mirrors the dawn in gold, and a
+small lantern boat drifts on it.
 
 ## Run
 
